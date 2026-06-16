@@ -1,0 +1,2 @@
+GitHub write test from ChatGPT.
+If this file exists, write permission is working.
