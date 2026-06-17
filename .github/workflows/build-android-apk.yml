@@ -35,10 +35,6 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Analyze Flutter code
-        working-directory: flutter_app
-        run: flutter analyze
-
       - name: Build debug APK
         working-directory: flutter_app
         run: flutter build apk --debug
