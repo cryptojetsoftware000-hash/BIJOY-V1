@@ -1,5 +1,6 @@
-name: bijoy_v1_chat_pro
-description: BIJOY-V1 Chat Pro - Flutter local WiFi LAN chat app.
+name: bijoy_calculator
+
+description: A basic calculator app built with Flutter.
 publish_to: "none"
 
 version: 1.0.0+1
@@ -10,7 +11,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  socket_io_client: ^3.1.2
 
 dev_dependencies:
   flutter_test:
