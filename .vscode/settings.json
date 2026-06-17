@@ -1,0 +1,11 @@
+{
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "files.eol": "\n",
+  "dart.lineLength": 100,
+  "eslint.validate": ["javascript"],
+  "github-actions.workflows.pinned.workflows": [
+    ".github/workflows/build-android-apk.yml",
+    ".github/workflows/checks.yml"
+  ]
+}
