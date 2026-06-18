@@ -21,7 +21,8 @@ SLEEP_SECONDS="${AGENT_SLEEP_SECONDS:-5}"
 AUTO_RUN="${AGENT_AUTO_RUN:-no}"
 HEARTBEAT_PUSH_EVERY="${AGENT_HEARTBEAT_PUSH_EVERY:-12}"
 MAX_LOG_LINES="${AGENT_MAX_LOG_LINES:-1200}"
-APK_URL="${APK_URL:-https://github.com/cryptojetsoftware000-hash/BIJOY-V1/releases/download/debug-latest/app-debug.apk}"
+DEFAULT_APK_URL="${APK_URL:-https://github.com/cryptojetsoftware000-hash/BIJOY-V1/releases/download/debug-latest/app-debug.apk}"
+APK_URL="$DEFAULT_APK_URL"
 APK_FILE="$DOWNLOADS/app-debug.apk"
 ROOT_APK_TMP="/data/local/tmp/bijoy-v1-app-debug.apk"
 
@@ -74,6 +75,28 @@ read_command() {
   tr -d '\r' < "$1" | sed '/^#/d;/^$/d' | head -n 1
 }
 
+apply_task_config() {
+  local task_file="$1"
+  APK_URL="$DEFAULT_APK_URL"
+  APK_FILE="$DOWNLOADS/app-debug.apk"
+  ROOT_APK_TMP="/data/local/tmp/bijoy-v1-app-debug.apk"
+
+  [ -f "$task_file" ] || return 0
+  while IFS='=' read -r key value; do
+    case "$key" in
+      APK_URL)
+        APK_URL="$value"
+        ;;
+      APK_NAME)
+        value="$(echo "$value" | tr -cd 'A-Za-z0-9._-')"
+        [ -n "$value" ] && APK_FILE="$DOWNLOADS/$value"
+        ;;
+    esac
+  done < <(tr -d '\r' < "$task_file" | sed '1d;/^#/d;/^$/d')
+
+  ROOT_APK_TMP="/data/local/tmp/$(basename "$APK_FILE")"
+}
+
 write_log_file() {
   local task_name="$1"
   local status="$2"
@@ -88,6 +111,7 @@ write_log_file() {
     echo "device=$(uname -a)"
     echo "repo=$ROOT_DIR"
     echo "apk_url=$APK_URL"
+    echo "apk_file=$APK_FILE"
     echo "----------------------------------------"
     echo "$output" | tail -n "$MAX_LOG_LINES"
   } > "$log_file"
@@ -120,7 +144,7 @@ root_install_latest_apk() {
   command -v su >/dev/null 2>&1 || { echo "su not found"; return 1; }
   [ -f "$APK_FILE" ] || download_latest_apk || return 1
   su -c "cp '$APK_FILE' '$ROOT_APK_TMP' && chmod 644 '$ROOT_APK_TMP' && pm install -r '$ROOT_APK_TMP'"
-  pm list packages 2>/dev/null | grep -i -E 'bijoy|calculator' || true
+  pm list packages 2>/dev/null | grep -i -E 'bijoy|calculator|notepad' || true
 }
 
 collect_safe_logs() {
@@ -136,7 +160,7 @@ collect_safe_logs() {
     echo "=== apk ==="
     ls -lh "$APK_FILE" 2>/dev/null || true
     echo "=== packages ==="
-    pm list packages 2>/dev/null | grep -i -E 'bijoy|calculator|debug|test' || true
+    pm list packages 2>/dev/null | grep -i -E 'bijoy|calculator|notepad|debug|test' || true
   }
 }
 
@@ -153,6 +177,7 @@ run_cmd() {
     SERVER_START_ONCE) cd server && timeout 20 npm start || true ;;
     FLUTTER_PUB_GET) cd flutter_app && flutter pub get ;;
     FLUTTER_BUILD_DEBUG_APK) cd flutter_app && flutter create . --platforms=android && flutter pub get && flutter build apk --debug ;;
+    NATIVE_NOTEPAD_BUILD_DEBUG_APK) cd android_notepad && gradle :app:assembleDebug ;;
     DOWNLOAD_LATEST_APK) download_latest_apk ;;
     OPEN_LATEST_APK) open_latest_apk ;;
     DOWNLOAD_AND_OPEN_APK) download_latest_apk && open_latest_apk ;;
@@ -182,10 +207,11 @@ run_cmd() {
 
 process_task() {
   local task_file="$1"
-  local task_name cmd running_file output status
+  local task_name cmd running_file output status code
   task_name="$(basename "$task_file")"
   cmd="$(read_command "$task_file")"
   running_file="$RUNNING/$task_name"
+  apply_task_config "$task_file"
 
   [ -n "$cmd" ] || {
     write_log_file "$task_name" "REJECTED" "EMPTY" "Empty task file"
@@ -209,6 +235,7 @@ process_task() {
   echo "task=$task_name" > "$STATE/current_task.txt"
   echo "command=$cmd" >> "$STATE/current_task.txt"
   echo "started=$(date -Iseconds)" >> "$STATE/current_task.txt"
+  echo "apk_url=$APK_URL" >> "$STATE/current_task.txt"
 
   set +e
   output="$(run_cmd "$cmd" "$running_file" 2>&1)"
@@ -244,7 +271,7 @@ main() {
   echo "Outbox: $OUTBOX"
   echo "========================================"
 
-  local cycle=0
+  local cycle=0 found task_file
   while true; do
     cycle=$((cycle + 1))
     log_console "Pulling GitHub tasks..."
