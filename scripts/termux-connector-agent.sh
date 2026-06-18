@@ -18,6 +18,7 @@ SLEEP_SECONDS="${AGENT_SLEEP_SECONDS:-60}"
 AUTO_RUN="${AGENT_AUTO_RUN:-no}"
 APK_URL="${APK_URL:-https://github.com/cryptojetsoftware000-hash/BIJOY-V1/releases/download/debug-latest/app-debug.apk}"
 APK_FILE="$DOWNLOADS/app-debug.apk"
+ROOT_APK_TMP="/data/local/tmp/bijoy-v1-app-debug.apk"
 
 mkdir -p "$INBOX" "$DONE" "$OUTBOX" "$REJECTED" "$DOWNLOADS"
 cd "$ROOT_DIR" || exit 1
@@ -88,10 +89,38 @@ open_latest_apk() {
   fi
 }
 
+root_check() {
+  if ! command -v su >/dev/null 2>&1; then
+    echo "su command not found. Root shell is not available to Termux."
+    return 1
+  fi
+  su -c id
+}
+
+root_install_latest_apk() {
+  if ! command -v su >/dev/null 2>&1; then
+    echo "su command not found. Root shell is not available to Termux."
+    return 1
+  fi
+
+  if [ ! -f "$APK_FILE" ]; then
+    download_latest_apk || return 1
+  fi
+
+  echo "Copying APK to $ROOT_APK_TMP and installing with root pm install..."
+  su -c "cp '$APK_FILE' '$ROOT_APK_TMP' && chmod 644 '$ROOT_APK_TMP' && pm install -r '$ROOT_APK_TMP'"
+  echo "Install command finished."
+  echo "Installed packages matching bijoy/calculator:"
+  pm list packages 2>/dev/null | grep -i -E 'bijoy|calculator' || true
+}
+
 collect_safe_logs() {
   {
     echo "=== termux-info ==="
     command -v termux-info >/dev/null 2>&1 && termux-info || true
+    echo ""
+    echo "=== root check ==="
+    command -v su >/dev/null 2>&1 && su -c id || true
     echo ""
     echo "=== git status ==="
     git status --short || true
@@ -180,6 +209,15 @@ run_task() {
     DOWNLOAD_AND_OPEN_APK)
       output="$(download_latest_apk && open_latest_apk 2>&1)"
       ;;
+    ROOT_CHECK)
+      output="$(root_check 2>&1)"
+      ;;
+    INSTALL_LATEST_APK_ROOT)
+      output="$(root_install_latest_apk 2>&1)"
+      ;;
+    DOWNLOAD_AND_INSTALL_APK_ROOT)
+      output="$(download_latest_apk && root_install_latest_apk 2>&1)"
+      ;;
     COLLECT_SAFE_LOGS)
       output="$(collect_safe_logs 2>&1)"
       ;;
@@ -209,6 +247,9 @@ FLUTTER_BUILD_DEBUG_APK
 DOWNLOAD_LATEST_APK
 OPEN_LATEST_APK
 DOWNLOAD_AND_OPEN_APK
+ROOT_CHECK
+INSTALL_LATEST_APK_ROOT
+DOWNLOAD_AND_INSTALL_APK_ROOT
 COLLECT_SAFE_LOGS
 COLLECT_LOGCAT
 DOCTOR
