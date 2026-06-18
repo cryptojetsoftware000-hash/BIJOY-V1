@@ -10,7 +10,7 @@ It does not give anyone direct SSH access to your phone. Instead, it works like 
 4. The Termux agent running on your phone pulls the repo.
 5. The agent asks you before running the task.
 6. The agent runs only allowed commands.
-7. The agent downloads/opens the APK or collects logs.
+7. The agent downloads/opens/installs APK or collects logs.
 8. The agent writes output to `termux-agent/outbox/` and pushes it back to GitHub.
 
 ## One-time setup in Termux
@@ -62,13 +62,31 @@ https://github.com/cryptojetsoftware000-hash/BIJOY-V1/releases/download/debug-la
 
 ## Install latest APK from Termux
 
-The agent can download and open Android installer with this task:
+Normal non-root install opens Android installer:
 
 ```text
 DOWNLOAD_AND_OPEN_APK
 ```
 
-Android will still ask you to tap Install manually. Silent install is blocked unless the phone is rooted or managed by ADB/device-owner.
+Root install can run silent install using `su` + `pm install -r`:
+
+```text
+DOWNLOAD_AND_INSTALL_APK_ROOT
+```
+
+Root check task:
+
+```text
+ROOT_CHECK
+```
+
+Install an already downloaded APK with root:
+
+```text
+INSTALL_LATEST_APK_ROOT
+```
+
+On rooted devices, Magisk/SuperSU may still ask once for permission. Allow Termux root access only if you trust your own repo tasks.
 
 ## Allowed task commands
 
@@ -87,6 +105,9 @@ FLUTTER_BUILD_DEBUG_APK
 DOWNLOAD_LATEST_APK
 OPEN_LATEST_APK
 DOWNLOAD_AND_OPEN_APK
+ROOT_CHECK
+INSTALL_LATEST_APK_ROOT
+DOWNLOAD_AND_INSTALL_APK_ROOT
 COLLECT_SAFE_LOGS
 COLLECT_LOGCAT
 DOCTOR
@@ -119,10 +140,10 @@ Warning: logcat can include private information from device/app logs. Use only w
 
 - Do not share SSH passwords, private keys, or GitHub tokens.
 - This agent is restricted to allowlisted commands.
+- Root install is limited to APK install tasks only.
 - It should run inside your project folder only.
 - Do not expose your phone to the public internet.
 - Keep ask-before-run mode enabled unless you understand the risk.
-- Android install confirmation cannot be safely bypassed without root/ADB.
 
 ## Stop the agent
 
