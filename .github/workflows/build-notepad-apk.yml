@@ -1,0 +1,62 @@
+name: Build Notepad APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android_notepad/**'
+      - '.github/workflows/build-notepad-apk.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-notepad:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        working-directory: android_notepad
+        run: gradle :app:assembleDebug
+
+      - name: Prepare release APK
+        run: |
+          mkdir -p release
+          cp android_notepad/app/build/outputs/apk/debug/app-debug.apk release/bijoy-notepad.apk
+          ls -lh release/bijoy-notepad.apk
+          bytes=$(wc -c < release/bijoy-notepad.apk)
+          echo "APK_SIZE_BYTES=$bytes" >> "$GITHUB_ENV"
+          test "$bytes" -lt 1048576
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bijoy-notepad-apk
+          path: release/bijoy-notepad.apk
+
+      - name: Publish latest notepad release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: notepad-latest
+          name: BIJOY Notepad Latest APK
+          body: Latest BIJOY Notepad debug APK. Size target under 1 MB.
+          files: release/bijoy-notepad.apk
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
