@@ -1,0 +1,1 @@
+Trigger Build Notepad APK workflow after native notepad project setup.
