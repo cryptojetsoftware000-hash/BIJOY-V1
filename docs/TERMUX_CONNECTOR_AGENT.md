@@ -4,18 +4,21 @@ This is a safe GitHub bridge for Termux.
 
 It does not give anyone direct SSH access to your phone. Instead, it works like this:
 
-1. A task file is added to `.termux-agent/inbox/` in GitHub.
-2. The Termux agent running on your phone pulls the repo.
-3. The agent asks you before running the task.
-4. The agent runs only allowed commands.
-5. The agent writes the output log to `.termux-agent/outbox/` and pushes it back to GitHub.
+1. GitHub Actions builds and tests the app in GitHub cloud runner.
+2. The release workflow publishes the APK to GitHub Releases.
+3. A task file is added to `termux-agent/inbox/` in GitHub.
+4. The Termux agent running on your phone pulls the repo.
+5. The agent asks you before running the task.
+6. The agent runs only allowed commands.
+7. The agent downloads/opens the APK or collects logs.
+8. The agent writes output to `termux-agent/outbox/` and pushes it back to GitHub.
 
 ## One-time setup in Termux
 
 ```bash
 pkg update -y
 pkg upgrade -y
-pkg install -y git nodejs
+pkg install -y git nodejs curl
 ```
 
 Clone the repo:
@@ -49,9 +52,27 @@ AGENT_AUTO_RUN=yes bash scripts/termux-connector-agent.sh
 
 Use auto-run only if you fully trust the tasks in your GitHub repo.
 
+## Direct APK download URL
+
+After the GitHub release workflow succeeds, latest APK will be here:
+
+```text
+https://github.com/cryptojetsoftware000-hash/BIJOY-V1/releases/download/debug-latest/app-debug.apk
+```
+
+## Install latest APK from Termux
+
+The agent can download and open Android installer with this task:
+
+```text
+DOWNLOAD_AND_OPEN_APK
+```
+
+Android will still ask you to tap Install manually. Silent install is blocked unless the phone is rooted or managed by ADB/device-owner.
+
 ## Allowed task commands
 
-Create a `.task` file in `.termux-agent/inbox/` with one of these commands:
+Create a `.task` file in `termux-agent/inbox/` with one of these commands:
 
 ```text
 PWD
@@ -63,6 +84,11 @@ SERVER_CHECK
 SERVER_START_ONCE
 FLUTTER_PUB_GET
 FLUTTER_BUILD_DEBUG_APK
+DOWNLOAD_LATEST_APK
+OPEN_LATEST_APK
+DOWNLOAD_AND_OPEN_APK
+COLLECT_SAFE_LOGS
+COLLECT_LOGCAT
 DOCTOR
 RUN_ALL_CHECKS
 ```
@@ -73,6 +99,22 @@ Example task file:
 SERVER_CHECK
 ```
 
+## Log collection
+
+Safe logs:
+
+```text
+COLLECT_SAFE_LOGS
+```
+
+Full Android logcat snapshot:
+
+```text
+COLLECT_LOGCAT
+```
+
+Warning: logcat can include private information from device/app logs. Use only when needed.
+
 ## Security rules
 
 - Do not share SSH passwords, private keys, or GitHub tokens.
@@ -80,6 +122,7 @@ SERVER_CHECK
 - It should run inside your project folder only.
 - Do not expose your phone to the public internet.
 - Keep ask-before-run mode enabled unless you understand the risk.
+- Android install confirmation cannot be safely bypassed without root/ADB.
 
 ## Stop the agent
 
