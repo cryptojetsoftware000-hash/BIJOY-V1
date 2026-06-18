@@ -1,0 +1,4 @@
+DOWNLOAD_AND_INSTALL_APK_ROOT
+APK_URL=https://github.com/cryptojetsoftware000-hash/BIJOY-V1/releases/download/notepad-latest/bijoy-notepad.apk
+APK_NAME=bijoy-notepad.apk
+PACKAGE=com.bijoy.notepad
