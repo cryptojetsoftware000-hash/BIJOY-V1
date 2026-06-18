@@ -3,9 +3,7 @@
 set -u
 
 # BIJOY-V1 Termux Connector Agent
-# Safe GitHub bridge for Termux.
-# It polls GitHub, reads task files from termux-agent/inbox, runs ONLY allowlisted tasks,
-# writes logs to termux-agent/outbox, and pushes logs back to GitHub.
+# GitHub bridge for Termux with allowlisted dev/root tasks.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 AGENT_DIR="$ROOT_DIR/termux-agent"
@@ -80,7 +78,6 @@ open_latest_apk() {
   if [ ! -f "$APK_FILE" ]; then
     download_latest_apk || return 1
   fi
-
   echo "Opening APK installer. Android may ask you to tap Install manually."
   if command -v termux-open >/dev/null 2>&1; then
     termux-open "$APK_FILE"
@@ -89,28 +86,17 @@ open_latest_apk() {
   fi
 }
 
-root_check() {
-  if ! command -v su >/dev/null 2>&1; then
-    echo "su command not found. Root shell is not available to Termux."
-    return 1
-  fi
-  su -c id
-}
-
 root_install_latest_apk() {
   if ! command -v su >/dev/null 2>&1; then
     echo "su command not found. Root shell is not available to Termux."
     return 1
   fi
-
   if [ ! -f "$APK_FILE" ]; then
     download_latest_apk || return 1
   fi
-
   echo "Copying APK to $ROOT_APK_TMP and installing with root pm install..."
   su -c "cp '$APK_FILE' '$ROOT_APK_TMP' && chmod 644 '$ROOT_APK_TMP' && pm install -r '$ROOT_APK_TMP'"
   echo "Install command finished."
-  echo "Installed packages matching bijoy/calculator:"
   pm list packages 2>/dev/null | grep -i -E 'bijoy|calculator' || true
 }
 
@@ -144,6 +130,56 @@ collect_logcat() {
   }
 }
 
+run_root_dev_tool() {
+  local cmd="$1"
+  local task_file="$2"
+  bash scripts/termux-root-dev-tools.sh "$cmd" "$task_file"
+}
+
+allowed_tasks_text() {
+  cat <<'TASKS'
+Allowed commands:
+PWD
+LS
+GIT_STATUS
+GIT_PULL
+SERVER_INSTALL
+SERVER_CHECK
+SERVER_START_ONCE
+FLUTTER_PUB_GET
+FLUTTER_BUILD_DEBUG_APK
+DOWNLOAD_LATEST_APK
+OPEN_LATEST_APK
+DOWNLOAD_AND_OPEN_APK
+ROOT_CHECK
+INSTALL_LATEST_APK_ROOT
+DOWNLOAD_AND_INSTALL_APK_ROOT
+UNINSTALL_APP_ROOT
+CLEAR_APP_DATA_ROOT
+STOP_APP_ROOT
+START_APP_ROOT
+RESTART_APP_ROOT
+GRANT_COMMON_PERMISSIONS_ROOT
+DUMPSYS_PACKAGE
+DUMPSYS_ACTIVITY_TOP
+LIST_APP_PROCESSES
+LIST_PACKAGES_DEV
+CLEAR_LOGCAT_ROOT
+COLLECT_CRASH_LOGS
+TAKE_SCREENSHOT
+SCREENRECORD_SHORT
+DEVICE_INFO_DEV
+COLLECT_SAFE_LOGS
+COLLECT_LOGCAT
+DOCTOR
+RUN_ALL_CHECKS
+
+Task file may include optional lines after command:
+PACKAGE=com.example.yourapp
+DURATION=10
+TASKS
+}
+
 run_task() {
   local task_file="$1"
   local cmd
@@ -173,87 +209,32 @@ run_task() {
   status="DONE"
 
   case "$cmd" in
-    PWD)
-      output="$(pwd 2>&1)"
+    PWD) output="$(pwd 2>&1)" ;;
+    LS) output="$(find . -maxdepth 3 -type f | sort 2>&1)" ;;
+    GIT_STATUS) output="$(git status --short 2>&1)" ;;
+    GIT_PULL) output="$(git pull 2>&1)" ;;
+    SERVER_INSTALL) output="$(cd server && npm install 2>&1)" ;;
+    SERVER_CHECK) output="$(cd server && npm install && npm run check 2>&1)" ;;
+    SERVER_START_ONCE) output="$(cd server && timeout 20 npm start 2>&1 || true)" ;;
+    FLUTTER_PUB_GET) output="$(cd flutter_app && flutter pub get 2>&1)" ;;
+    FLUTTER_BUILD_DEBUG_APK) output="$(cd flutter_app && flutter create . --platforms=android && flutter pub get && flutter build apk --debug 2>&1)" ;;
+    DOWNLOAD_LATEST_APK) output="$(download_latest_apk 2>&1)" ;;
+    OPEN_LATEST_APK) output="$(open_latest_apk 2>&1)" ;;
+    DOWNLOAD_AND_OPEN_APK) output="$(download_latest_apk && open_latest_apk 2>&1)" ;;
+    INSTALL_LATEST_APK_ROOT) output="$(root_install_latest_apk 2>&1)" ;;
+    DOWNLOAD_AND_INSTALL_APK_ROOT) output="$(download_latest_apk && root_install_latest_apk 2>&1)" ;;
+    ROOT_CHECK|UNINSTALL_APP_ROOT|CLEAR_APP_DATA_ROOT|STOP_APP_ROOT|START_APP_ROOT|RESTART_APP_ROOT|GRANT_COMMON_PERMISSIONS_ROOT|DUMPSYS_PACKAGE|DUMPSYS_ACTIVITY_TOP|LIST_APP_PROCESSES|LIST_PACKAGES_DEV|CLEAR_LOGCAT_ROOT|COLLECT_CRASH_LOGS|TAKE_SCREENSHOT|SCREENRECORD_SHORT|DEVICE_INFO_DEV)
+      output="$(run_root_dev_tool "$cmd" "$task_file" 2>&1)"
       ;;
-    LS)
-      output="$(find . -maxdepth 3 -type f | sort 2>&1)"
-      ;;
-    GIT_STATUS)
-      output="$(git status --short 2>&1)"
-      ;;
-    GIT_PULL)
-      output="$(git pull 2>&1)"
-      ;;
-    SERVER_INSTALL)
-      output="$(cd server && npm install 2>&1)"
-      ;;
-    SERVER_CHECK)
-      output="$(cd server && npm install && npm run check 2>&1)"
-      ;;
-    SERVER_START_ONCE)
-      output="$(cd server && timeout 20 npm start 2>&1 || true)"
-      ;;
-    FLUTTER_PUB_GET)
-      output="$(cd flutter_app && flutter pub get 2>&1)"
-      ;;
-    FLUTTER_BUILD_DEBUG_APK)
-      output="$(cd flutter_app && flutter create . --platforms=android && flutter pub get && flutter build apk --debug 2>&1)"
-      ;;
-    DOWNLOAD_LATEST_APK)
-      output="$(download_latest_apk 2>&1)"
-      ;;
-    OPEN_LATEST_APK)
-      output="$(open_latest_apk 2>&1)"
-      ;;
-    DOWNLOAD_AND_OPEN_APK)
-      output="$(download_latest_apk && open_latest_apk 2>&1)"
-      ;;
-    ROOT_CHECK)
-      output="$(root_check 2>&1)"
-      ;;
-    INSTALL_LATEST_APK_ROOT)
-      output="$(root_install_latest_apk 2>&1)"
-      ;;
-    DOWNLOAD_AND_INSTALL_APK_ROOT)
-      output="$(download_latest_apk && root_install_latest_apk 2>&1)"
-      ;;
-    COLLECT_SAFE_LOGS)
-      output="$(collect_safe_logs 2>&1)"
-      ;;
-    COLLECT_LOGCAT)
-      output="$(collect_logcat 2>&1)"
-      ;;
-    DOCTOR)
-      output="$(bash scripts/doctor.sh 2>&1)"
-      ;;
-    RUN_ALL_CHECKS)
-      output="$(bash scripts/run-all-checks.sh 2>&1)"
-      ;;
+    COLLECT_SAFE_LOGS) output="$(collect_safe_logs 2>&1)" ;;
+    COLLECT_LOGCAT) output="$(collect_logcat 2>&1)" ;;
+    DOCTOR) output="$(bash scripts/doctor.sh 2>&1)" ;;
+    RUN_ALL_CHECKS) output="$(bash scripts/run-all-checks.sh 2>&1)" ;;
     *)
       status="REJECTED"
       output="Command not allowed: $cmd
 
-Allowed commands:
-PWD
-LS
-GIT_STATUS
-GIT_PULL
-SERVER_INSTALL
-SERVER_CHECK
-SERVER_START_ONCE
-FLUTTER_PUB_GET
-FLUTTER_BUILD_DEBUG_APK
-DOWNLOAD_LATEST_APK
-OPEN_LATEST_APK
-DOWNLOAD_AND_OPEN_APK
-ROOT_CHECK
-INSTALL_LATEST_APK_ROOT
-DOWNLOAD_AND_INSTALL_APK_ROOT
-COLLECT_SAFE_LOGS
-COLLECT_LOGCAT
-DOCTOR
-RUN_ALL_CHECKS"
+$(allowed_tasks_text)"
       ;;
   esac
 
