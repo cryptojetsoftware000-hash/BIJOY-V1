@@ -1,0 +1,12 @@
+{
+  "name": "bijoy-termux-connector-server",
+  "version": "1.0.0",
+  "description": "Local Termux connector server for repo/dev/android/root tools.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check tools/files.js && node --check tools/git.js && node --check tools/android.js && node --check tools/root.js && node --check tools/logs.js"
+  },
+  "dependencies": {}
+}
