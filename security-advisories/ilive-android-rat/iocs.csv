@@ -1,0 +1,14 @@
+type,value,note
+sha256,8c4c373b4ae09691a86525eb504205b6365c8ec9fbedb3ea190b9f60312700a3,ILIVE Android RAT sample
+package,i422sh.wvp49.uyef.pm8qa,Android package name
+domain,chaorencctv1.com,Observed in decrypted payload analysis
+domain,duodaduo.com,Observed in decrypted payload analysis
+related_domain_candidate,chaorencctv.com,Validate independently
+panel,https://chaorencctv1.com/panel,Observed V2 Panel login page
+campaign_id,10028,Observed build/campaign identifier
+target_package,com.phonepe.app,PhonePe explicitly present in target list
+target_package,com.google.android.apps.nbu.paisa.user,Google Pay explicitly present in target list
+target_package,net.one97.paytm,Paytm explicitly present in target list
+target_package,in.org.npci.upiapp,BHIM explicitly present in target list
+native_library,lib/arm64-v8a/libadb.so,Bundled ADB client library
+native_library,lib/armeabi-v7a/libadb.so,Bundled ADB client library
